@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "canguard"
+version = "0.1.0"
+dependencies = [
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "torch"
+]
+
+[project.scripts]
+canguard = "canguard.main:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["canguard*"]

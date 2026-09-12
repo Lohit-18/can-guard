@@ -1,0 +1,10 @@
+vehicle:
+  name: "Simulated Sedan v2"
+  buses: ["HS-CAN", "MS-CAN"]
+  ecus:
+    - name: "ECM"
+      id: "0x100"
+      cycle_ms: 10
+    - name: "BCM"
+      id: "0x200"
+      cycle_ms: 20
