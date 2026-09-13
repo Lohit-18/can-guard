@@ -269,42 +269,80 @@ This makes the system easier to evaluate than a simple "attack detected / attack
 
 At a high level:
 
-```text
-Synthetic CAN Traffic
-        │
-        ▼
-CAN Frame Generation
-        │
-        ├── CAN ID
-        ├── Payload bytes
-        └── Timestamp
-        │
-        ▼
-Feature Construction
-        │
-        ├── byte_0 ... byte_7
-        ├── can_id
-        └── delta_time
-        │
-        ▼
-Train/Test Split
-        │
-        ├──────────────┬──────────────────┐
-        ▼              ▼                  ▼
- Random Forest       MLP           Isolation Forest
-        │              │                  │
-        └──────────────┴──────────────────┘
-                       │
-                       ▼
-                 Predictions
-                       │
-                       ▼
-              Evaluation Metrics
-                       │
-             ┌─────────┼─────────┐
-             ▼         ▼         ▼
-          Accuracy   Recall     F1/FPR
-```
+```mermaid
+flowchart TD
+    %% Vehicle Simulation Environment
+    subgraph Vehicle_Network ["Vehicle Simulation (Physical & Data Link Layers)"]
+        direction LR
+        ECU1["Engine ECU\n(HS-CAN: 0x100)"]
+        ECU2["Brake ECU\n(HS-CAN: 0x300)"]
+        ECU3["Body ECU\n(MS-CAN: 0x200)"]
+        Bus(("Dual CAN Bus\n(500 kbit/s)"))
+        ECU1 --> Bus
+        ECU2 --> Bus
+        ECU3 --> Bus
+    end
+
+    %% Threat Injection
+    subgraph Attack_Vectors ["Threat Injection Model"]
+        direction TB
+        A1["DoS Flood (ID 0x000)"]
+        A2["Fuzzing (High Entropy)"]
+        A3["Masquerade (Spoofed Physics)"]
+        A1 -.-> Bus
+        A2 -.-> Bus
+        A3 -.-> Bus
+    end
+
+    %% CAN-Guard Core Pipeline
+    subgraph CAN_Guard ["CAN-Guard IDS Pipeline"]
+        direction TB
+        Sniffer["Packet Sniffer & Decoder\n(250ms Sliding Window, 50% Overlap)"]
+
+        subgraph Feature_Extraction ["88-Dimension Feature Extractor"]
+            direction LR
+            F_Time["Temporal\n(IAT Variance, Clock Skew)"]
+            F_Integ["Integrity\n(Payload Entropy, Counters)"]
+            F_Phys["Kinematics\n(Cross-ECU Physics Residuals)"]
+        end
+
+        subgraph ML_Engine ["Ensemble Machine Learning Engine"]
+            direction LR
+            ML_RF["Random Forest\n(Supervised Classification)"]
+            ML_MLP["MLP Neural Net\n(Deep Feature Correlation)"]
+            ML_ISO["Isolation Forest\n(Unsupervised Zero-Day)"]
+        end
+
+        Sniffer --> Feature_Extraction
+        F_Time & F_Integ & F_Phys --> ML_Engine
+    end
+
+    %% Execution & Output
+    subgraph Output ["CLI Gateway & Alerting"]
+        Classifier{"Threat Classifier\n& Debouncer"}
+        Alert["Live Stream Alert\n(canguard live)"]
+        Report["Evaluation Matrix\n(canguard run)"]
+    end
+
+    Bus ====>|Raw Byte-Frames| Sniffer
+    ML_RF & ML_MLP & ML_ISO --> Classifier
+    Classifier --> Alert
+    Classifier --> Report
+
+    %% Styling
+    classDef sim fill:#1e1e1e,stroke:#3fb950,stroke-width:2px,color:#fff
+    classDef attack fill:#3a0000,stroke:#ff0000,stroke-width:2px,color:#fff
+    classDef ids fill:#0d1117,stroke:#58a6ff,stroke-width:2px,color:#fff
+    classDef feat fill:#161b22,stroke:#d2a8ff,color:#fff
+    classDef ml fill:#161b22,stroke:#e3b341,color:#fff
+    classDef out fill:#000000,stroke:#a5d6ff,color:#fff
+
+    class ECU1,ECU2,ECU3,Bus sim
+    class A1,A2,A3 attack
+    class Sniffer ids
+    class F_Time,F_Integ,F_Phys feat
+    class ML_RF,ML_MLP,ML_ISO ml
+    class Classifier,Alert,Report out
 
 The important point is that CAN-Guard is not simply "an ML model."
 
